@@ -1,0 +1,48 @@
+setwd("~/Desktop/EC 570 Project R")
+library(readxl)
+X1<-c("M","i","U")
+Data<-read_excel("SemiAnnual Data.xlsx",col_names = X1)
+summary(Data$i) summary(Data$U) summary(lU)
+R1 <- lm(Data$i~Data$U) summary(R1)
+lU <- log(Data$U)
+R2 <- lm(Data$i~lU) summary(R2)
+RSSr1<-sum(R1$residuals^2) DFr1<-R1$df.residual
+obs<-seq_along(Data$i) Ftest1.1=NULL
+for (t in 7:56) {
+R1.1=lm(Data$i~Data$U,subset=obs<t) RSS1.1=sum(R1.1$residuals^2)
+DF1.1=R1.1$df.residual R1.2=lm(Data$i~Data$U,subset=obs>=t) RSS1.2=sum(R1.2$residuals^2)
+DF1.2=R1.2$df.residual
+RSSur1=RSS1.1+RSS1.2
+DFur1=DF1.1+DF1.2 Ftest1=((RSSr1-RSSur1)/(DFr1-DFur1))/(RSSur1/DFur1) PFtest1=1-pf(Ftest1, DFr1-DFur1, DFur1) Ftest1.1=rbind(Ftest1.1,c(t,Ftest1,PFtest1))
+}
+plot(Ftest1.1[,1],Ftest1.1[,2],type="b",main="Chow Test of Structural Change Model 1",xlab="Break Point",ylab="F Test Statistic") BestF<-Ftest1.1[Ftest1.1[,2]==max(Ftest1.1[,2]),] Data$M[BestF[1]]
+BestF[2:3]
+D1 <- factor(Data$M<"1993-12-01 UTC") R1a <- lm(Data$i~Data$U*D1) summary(R1a)
+RSSur1a <- sum(R1a$residuals^2) DFur1a <- R1a$df.residual
+Ftest1a <- ((RSSr1-RSSur1a)/(DFr1-DFur1a))/(RSSur1a/DFur1a) Ftest1a
+RSSr2<-sum(R2$residuals^2) DFr2<-R2$df.residual
+obs<-seq_along(Data$i) Ftest2.2=NULL
+for (t in 7:56) {
+R2.1=lm(Data$i~lU,subset=obs<t) RSS2.1=sum(R2.1$residuals^2) DF2.1=R2.1$df.residual R2.2=lm(Data$i~lU,subset=obs>=t)
+RSS2.2=sum(R2.2$residuals^2)
+DF2.2=R2.2$df.residual
+RSSur2=RSS2.1+RSS2.2
+DFur2=DF2.1+DF2.2 Ftest2=((RSSr2-RSSur2)/(DFr2-DFur2))/(RSSur2/DFur2) PFtest2=1-pf(Ftest2, DFr2-DFur2, DFur2) Ftest2.2=rbind(Ftest2.2,c(t,Ftest2,PFtest2))
+}
+plot(Ftest2.2[,1],Ftest2.2[,2],type="b",main="Chow Test of Structural Change Model 2",xlab="Break Point",ylab="F Test Statistic") BestF<-Ftest2.2[Ftest2.2[,2]==max(Ftest2.2[,2]),] Data$M[BestF[1]]
+BestF[2:3]
+D2 <- factor(Data$M<"1993-12-01 UTC") R2a <- lm(Data$i~lU*D2)
+summary(R2a)
+RSSur2a <- sum(R2a$residuals^2) DFur2a <- R2a$df.residual
+Ftest2a <- ((RSSr2-RSSur2a)/(DFr2-DFur2a))/(RSSur2a/DFur2a) Ftest2a
+library(lmtest)
+shapiro.test(R1a$residuals)
+dwtest(Data$i~Data$U*D1) bartlett.test(R1a$residuals,Data$M > "1993-06-01 UTC")
+shapiro.test(R2a$residuals)
+dwtest(Data$i~lU*D2) bartlett.test(R2a$residuals,Data$M > "1993-06-01 UTC")
+anova(R1,R1a) anova(R2,R2a)
+AIC(R1,R1a) BIC(R1,R1a) AIC(R2,R2a) BIC(R2,R2a)
+plot(R1)
+plot(R1a)
+plot(R2)
+plot(R2a)
