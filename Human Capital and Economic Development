@@ -1,0 +1,117 @@
+ * EC 575 Advanced Applied Econometrics
+* Final Project - Fall term 2017
+
+cd "/Users/Apple/Desktop/EC 575/Stata work"
+clear all
+set more off
+
+*Import dataset in csv format
+clear all
+insheet using "/Users/Apple/Desktop/EC 575/Stata work/project_data.csv"
+
+* Tell stata to have a panel data set
+xtset Country year
+
+* Describe panel data
+xtdes, pattern (0)
+xtdes 
+
+xtline gdp, overlay
+
+* Describe var
+sum gdp gov_exp educ_sec educ_ter he_exp inf cap fert mor techexp eleccon
+/* overall=between+within: eg: for gdp, between between variance dominates 
+more than 85% of the overall variation is due to differences across countries */
+xtsum gdp gov_exp educ_sec educ_ter he_exp inf cap fert mor techexp eleccon
+
+* Generate log form
+gen tgdp = gdp/1000
+gen tech = techexp/1000
+gen elec = eleccon/1000
+
+* Generate lists for dependent variable and independent variables
+global y tgdp
+global x gov_exp educ_sec educ_ter he_exp
+global c inf cap fert mor tech elec
+
+
+* Descriptive Statistics
+summarize $y $x $c
+describe $y $x $c
+
+/*Model choosing: (pool model, random effect model, fixed effect model)*/
+* Breusch-Pagan test: (pool or rem/fem)
+* Regress without individual effect (also fixing the heteroskedasticity)
+reg $y $x $c, robust
+twoway scatter gdp gov_exp, mlabel(Country) || lfit gdp gov_exp, clstyle(p2)
+* Regress with individual effect
+xtreg $y $x $c, re
+* Compare the above two
+xttest0
+* Result: p=0.0000, reject H0: pooled model. Thus it is individual effect model.
+* Then we should use Hausman test to see if we should use rem or fem.
+
+* Hausman test: (rem or fem)
+xtreg $y $x $c, fe
+est store fixed
+xtreg $y $x $c, re
+est store random
+hausman fixed random
+/* Result: p=0.0000, reject H0: random effect (individual effect does not 
+relate to var), thus we use fixed effect model. */
+
+* OLS versus Fixed effect model
+reg $y $x $c
+estimate store ols
+xtreg $y $x $c, fe
+reg $y $x $c i.Country
+estimates store ols_dum
+estimates table ols ols_dum, star stats(N)
+
+* Testing for time-fixed effects
+xtreg $y $x $c i.year, fe
+testparm i.year
+/* Prob>F is < 0.05, so we reject the null hypothesis that the coefficients for
+all years are jointly equal to zero, time-fixed effects are needed */
+
+* Testing for cross-sectional dependence using Breusch-Pagan LM test
+ssc install xttest2
+xtreg $y $x $c, fe
+xttest2
+/* Pr < 0.05, so we can reject the null hypothesis. Thus, there is cross-sectional
+dependence */
+ssc install xtcsd
+xtreg $y $x $c, fe  /*using Pasaran CD test*/
+xtcsd, pesaran abs
+/* Pr < 0.05, so we can reject the null hypothesis. Thus, there is cross-sectional
+dependence */
+
+* Testing for heteroskedasticity (constant variance)
+ssc install xttest3
+xtreg $y $x $c i.year, fe
+xttest3
+/* Presence of heteroskedasticity */
+
+* Deal with heteroskedasticity, autocorrelation, cross-sectional dependence
+xtgls $y $x $c, panels(correlated)
+xtpcse $y $x $c, correlation(ar1)
+
+/* Regression with Driscoll-Kraay standard errors */
+/* corrects for autocorrelation and heteroskedasticity */
+ssc install xtscc
+xtreg $y $x $c, fe			/*regular fixed effects*/
+estimates store fe
+xtreg $y $x $c, fe robust	/*heteroskedasticity*/
+estimates store het
+xtscc $y $x $c, fe			/*hetero and cross-sectional dep*/
+estimates store hetcross
+estimates table fe het hetcross, star stats(N)
+
+
+xtreg $y $x $c, fe				/*regular fixed effects*/
+estimates store fe
+xtreg $y $x $c, fe robust		/*heteroskedasticity*/
+estimates store het
+xtscc $y $x $c, fe				/*hetero and cross-sectional dep*/
+estimates store hetcross
+estimates table fe het hetcross, star stats(N)
