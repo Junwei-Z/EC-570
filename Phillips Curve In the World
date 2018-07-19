@@ -1,0 +1,69 @@
+# Panel data: 13 countries 23 years (1992-2014) setwd("/Users/Apple/Desktop/")
+# Read data file
+library(readxl)
+unem<-read_excel("Unemployment Medium.xlsx") inflation<-read_excel("Inflation Medium.xlsx")
+# Convert data into long format
+unem.long<- reshape(unem,varying=c("Canada","Germany","France","UK","Denmark" ,"Italy","Austria","Australia","USA","China","Japan","Korea, Rep.","New Zealand"),
+v.names="unem", timevar="country", idvar="year", direction="long")
+inflation.long<- reshape(inflation,varying=c("Canada","Germany","France","UK","Den mark","Italy","Austria","Australia","USA","China","Japan","Korea, Rep.","New Zealand"),
+v.names="inflation", timevar="country", idvar="year", direction="long")
+all.long<-subset(cbind(unem.long,inflation.long), select = c("country","year","unem","inflation"))
+summary(all.long)
+# Convert data to panel data format library(plm)
+# There are 13 individuals and 23 years
+pdata<- pdata.frame(all.long,index=c("country","year"),drop.index=T,row.n ames=T)
+summary(pdata)
+# Pooled OLS estimator
+pooled<-plm(unem ~ inflation, data = pdata, model = "pooling") summary(pooled)
+## p=0.01786
+# F test for fixed effects versus OLS
+pFtest(unem ~ inflation, data = pdata, effect = "individual") pFtest(unem ~ inflation, data = pdata, effect = "time") pFtest(unem ~ inflation, data = pdata, effect = "twoways")
+# p-value < 2.2e-16;p-value = 0.08481;p-value < 2.2e-16
+## There is no time fixed effect while individual fixed effect presents in the model
+# LM test for random effects versus OLS
+plmtest(unem type = "bp") plmtest(unem "bp") plmtest(unem = "bp")
+~ inflation, data = pdata, effect = "individual",
+~ inflation, data = pdata, effect = "time", type = ~ inflation, data = pdata, effect = "twoways", type
+# p-value < 2.2e-16;p-value = 0.2659;p-value < 2.2e-16
+## There is no time random effect while individual random effect presents in the model
+### After all tests, either individual fixed or individual random effects will be used
+# Fixed effects estimator (Within estimator)
+## Individual effect
+idfixed<-plm(unem ~ inflation, data = pdata, model = "within", effect = "individual")
+summary(idfixed)
+### p-value = 0.097028
+# Random effects estimator
+## Individual effect
+idrandom<-plm(unem ~ inflation, data = pdata, model = "random", effect = "individual", random.method = "swar") summary(idrandom)
+### p-value = 0.086169
+# Hausman test for fixed versus random effects model phtest(idfixed, idrandom)
+### p-value = 0.554, so we do not reject the null hypothesis (H0: Random effects)
+#### random individual effects is more preferred #
+#
+# Tests for Cross Section Dependence (H0: there is no cross section dependence)
+pcdtest(idrandom, test = "cd") # Pesaran CD test (default) ## p-value = 8.876e-08
+pcdtest(idrandom, test = "lm") # Breusch-Pagan test
+## p-value < 2.2e-16
+### there is cross section dependence, the coefficient is inefficient
+#
+# Tests for Autcorrelation (H0: there is no auto correlation) pdwtest(idrandom) # Durbin-Watson test;
+## p-value < 2.2e-16
+pbgtest(idrandom) # Breusch-Godfrey test;
+## p-value < 2.2e-16
+### there is auto correlation
+# Test for general heteroscedasticity
+library(lmtest)
+bptest(unem ~ inflation + as.factor(country), data = all.long, studentize=F)
+## p-value = 3.531e-05
+### there is hetero
+# if no hetero, use white3
+library(lmtest)
+HCV3<-vcovHC(idrandom, method = "arellano") # general heteroscedasticity & autocorrelation coeftest(idrandom,vcov.=HCV3)
+## p-value = 0.2168
+inf<-matrix(all.long[,3],nr=23,nc=13)
+colnames(inf)<- c("Canada","Germany","France","UK","Denmark","Italy","Austria","A ustralia","USA","China","Japan","Korea, Rep.","New Zealand")
+
+boxplot(inf,col=1:13)
+inf2<-matrix(all.long[,4],nr=23,nc=13)
+colnames(inf2)<- c("Canada","Germany","France","UK","Denmark","Italy","Austria","A ustralia","USA","China","Japan","Korea, Rep.","New Zealand") boxplot(inf2,col=1:13)
+pdd<-plm.data(all.long,index=c("country","year")) SUR1<-systemfit(unem ~ inflation,method="SUR",data=pdd) summary(SUR1)
